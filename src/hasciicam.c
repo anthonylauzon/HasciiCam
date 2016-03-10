@@ -3,7 +3,7 @@
  *  (c) 2000-2014 Denis Roio <jaromil@dyne.org>
  *
  * This source code is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Public License as published 
+ * modify it under the terms of the GNU Public License as published
  * by the Free Software Foundation; either version 3 of the License,
  * or (at your option) any later version.
  *
@@ -262,7 +262,7 @@ int vid_detect(char *devfile) {
 	perror("VIDIOC_S_INPUT");
 	exit(EXIT_FAILURE);
     }
-    
+
 // Get info about current video input
     memset(&input, 0, sizeof(input));
     input.index = inputch;
@@ -305,10 +305,10 @@ int vid_detect(char *devfile) {
 
     printf("Current capture is %u x %u\n",
            format.fmt.pix.width, format.fmt.pix.height);
-    printf("format %4.4s, %u bytes-per-line\n", 
+    printf("format %4.4s, %u bytes-per-line\n",
            (char*)&format.fmt.pix.pixelformat,
            format.fmt.pix.bytesperline);
-    
+
     return 1;
 }
 
@@ -320,7 +320,7 @@ int vid_init() {
     vw = format.fmt.pix.width;
     vh = format.fmt.pix.height;
     vbytesperline = format.fmt.pix.bytesperline;
-    xbytestep = xstep + xstep; // for YUV422. for other formats may differ
+    xbytestep = xstep; // for YUV422. for other formats may differ
     ybytestep = vbytesperline * (ystep-1);
     // we shrink our pixels crudely, by hopping over them:
     gw = vw / xstep;
@@ -328,24 +328,24 @@ int vid_init() {
     // aalib converts every block of 4 pixels to one character, so our sizes shrink by 2:
     aw = gw / 2;
     ah = gh / 2;
-    
+
     greysize = gw * gh;
     grey = malloc(greysize); // To get grey from YUYV we simply ignore the U and V bytes
     printf("Grey buffer is %i bytes\n", greysize);
     for (j=0; j< 256; ++j)
-        YtoRGB[j] = 1.164*(j-256);    
+        YtoRGB[j] = 1.164*(j-256);
 
     memset (&reqbuf, 0, sizeof (reqbuf));
     reqbuf.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
     reqbuf.memory = V4L2_MEMORY_MMAP;
     reqbuf.count = 32;
-    
+
     if (-1 == ioctl (fd, VIDIOC_REQBUFS, &reqbuf)) {
         if (errno == EINVAL)
             printf ("Fatal: Video capturing by mmap-streaming is not supported\n");
         else
             perror ("VIDIOC_REQBUFS");
-        
+
         exit (EXIT_FAILURE);
     }
     buffers = calloc (reqbuf.count, sizeof (*buffers));
@@ -355,24 +355,24 @@ int vid_init() {
     }
 
     for (i = 0; i < reqbuf.count; i++) {
-        
+
         memset (&buffer, 0, sizeof (buffer));
         buffer.type = reqbuf.type;
 	buffer.memory = V4L2_MEMORY_MMAP;
         buffer.index = i;
-        
+
         if (-1 == ioctl (fd, VIDIOC_QUERYBUF, &buffer)) {
             perror ("VIDIOC_QUERYBUF");
             exit (EXIT_FAILURE);
         }
-        
+
         buffers[i].length = buffer.length; /* remember for munmap() */
-        
+
         buffers[i].start = mmap (NULL, buffer.length,
                                  PROT_READ | PROT_WRITE, /* recommended */
                                  MAP_SHARED,             /* recommended */
                                  fd, buffer.m.offset);
-        
+
         if (MAP_FAILED == buffers[i].start) {
             /* If you do not exit here you should unmap() and free()
              *                    the buffers mapped so far. */
@@ -384,25 +384,25 @@ int vid_init() {
    next is: turn on streaming, and do the business. */
 
     for (i = 0; i < reqbuf.count; i++) {
-        // queue up all the buffers for the first time        
+        // queue up all the buffers for the first time
         memset (&buffer, 0, sizeof (buffer));
         buffer.type = reqbuf.type;
 	buffer.memory = V4L2_MEMORY_MMAP;
         buffer.index = i;
-        
+
         if (-1 == ioctl (fd, VIDIOC_QBUF, &buffer)) {
             perror ("VIDIOC_QBUF");
             exit (EXIT_FAILURE);
-        }	
+        }
     }
-    
+
     // turn on streaming
     if(-1 == ioctl(fd, VIDIOC_STREAMON, &buftype)) {
 	perror("VIDIOC_STREAMON");
 	exit(EXIT_FAILURE);
     }
-    
-    
+
+
     for (i = 0; i < greysize; i++) {
 	grey[i] = i % 160; //256;
     }
@@ -415,25 +415,25 @@ void grab_one () {
     if (-1 == ioctl (fd, VIDIOC_DQBUF, &buffer)) {
         perror ("VIDIOC_DQBUF");
         exit (EXIT_FAILURE);
-    }	
-    
+    }
+
     if((++framenum) == renderhop){
         framenum=0;
         YUV422_to_grey(buffers[buffer.index].start, grey, vw, vh);
-        
+
         memcpy( aa_image(ascii_context), grey, greysize);
         aa_fastrender(ascii_context, 0, 0, vw/(xstep*2), vh/(ystep*2)); //TODO are the w&h args correct?
 //		aa_render(ascii_context, ascii_rndparms, 0, 0, vw/(xstep*2), vh/(ystep*2)); //TODO are the w&h args correct?
         aa_flush(ascii_context);
     }
-    
-    
+
+
     // Thanks for lending us your buffer, you may have it back again:
     if (-1 == ioctl (fd, VIDIOC_QBUF, &buffer)) {
         perror ("VIDIOC_QBUF");
         exit (EXIT_FAILURE);
-    }	
-    
+    }
+
 }
 
 
@@ -460,10 +460,10 @@ config_init (int argc, char *argv[]) {
   aa_geo.bright =  60;
   aa_geo.contrast = 4;
   aa_geo.gamma = 3;
-  
+
   do {
     res = getopt_long (argc, argv, short_options, long_options, NULL);
-    
+
     switch (res) {
     case 'h':
       fprintf (stderr, "%s", help);
@@ -498,16 +498,16 @@ config_init (int argc, char *argv[]) {
       break;
     case 'i':
       inputch = atoi (optarg);
-      /* 
+      /*
 	 here we assume that capture cards have maximum 3 channels
-	 (usually the 4th, when present, is the radio tuner) 
+	 (usually the 4th, when present, is the radio tuner)
       */
       if (inputch > 3) {
 	fprintf (stderr, "invalid input selected\n");
 	exit (1);
       }
       break;
-      
+
     case 's':
       {
 	char *t;
@@ -633,7 +633,7 @@ main (int argc, char **argv) {
 	    refresh, aafile, linespace, background, foreground, fontsize,
 	    fontface);
 
-  
+
   setuid (uid);
   setgid (gid);
 
@@ -644,7 +644,7 @@ main (int argc, char **argv) {
     case LIVE:
       fprintf (stderr, "using LIVE mode\n");
       break;
-      
+
     case HTML:
       snprintf(aatmpfile,255,"%s.tmp",aafile);
       ascii_save.name = aatmpfile;
@@ -653,7 +653,7 @@ main (int argc, char **argv) {
 
       fprintf (stderr, "using HTML mode dumping to file %s\n", aafile);
       break;
-      
+
     case TEXT:
       ascii_save.name = aafile;
       ascii_save.format = &aa_text_format;
@@ -666,7 +666,7 @@ main (int argc, char **argv) {
     default:
       break;
     }
-  
+
   fprintf(stderr,"\n");
 
   /* aalib init */
@@ -689,9 +689,9 @@ main (int argc, char **argv) {
   //  ascii_rndparms->inversion = invert;
   //  ascii_rndparms->randomval = 0;
 
-	
-	
-    
+
+
+
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 
@@ -702,14 +702,14 @@ main (int argc, char **argv) {
 
 
   while (userbreak <1) {
-    grab_one ();	
+    grab_one ();
 	/*aa_setpalette (gamma di colori, indice, colore rosso, verde, blu)*/
-	
+
 	/*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
     memcpy (aa_image (ascii_context), grey, vid_geo.size);
-    aa_render (ascii_context, ascii_rndparms, 0, 0, 
+    aa_render (ascii_context, ascii_rndparms, 0, 0,
 	       vid_geo.w,vid_geo.h);
-	
+
     aa_flush (ascii_context);
   //  unlink(aafile);
     rename(aatmpfile,aafile);
@@ -717,7 +717,7 @@ main (int argc, char **argv) {
   }
 
   /* CLEAN EXIT */
-  
+
   // turn off streaming
   if(-1 == ioctl(fd, VIDIOC_STREAMOFF, &buftype)) {
       perror("VIDIOC_STREAMOFF");
@@ -727,7 +727,7 @@ main (int argc, char **argv) {
 
   for (i = 0; i < reqbuf.count; i++)
       munmap (buffers[i].start, buffers[i].length);
-  
+
   aa_close(ascii_context);
   free(grey);
   if(fd>0) close(fd);
@@ -744,5 +744,3 @@ quitproc (int Sig)
   fprintf (stderr, "interrupt caught, exiting.\n");
   userbreak = 1;
 }
-
-
